@@ -5,9 +5,20 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_ollama.llms import OllamaLLM
 from langchain.prompts import ChatPromptTemplate
 from Model.vector_database import create_vector_database
-
-
-
+"""
+#python -m pip install "pymongo[srv]"
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
+uri = "mongodb+srv://admin:<db_password>@courseassistantdb.j70fx.mongodb.net/?retryWrites=true&w=majority&appName=CourseAssistantDB"
+# Create a new client and connect to the server
+client = MongoClient(uri, server_api=ServerApi('1'))
+# Send a ping to confirm a successful connection
+try:
+    client.admin.command('ping')
+    print("Pinged your deployment. You successfully connected to MongoDB!")
+except Exception as e:
+    print(e)
+"""
 
 
 app = Flask(__name__)
