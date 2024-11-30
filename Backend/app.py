@@ -4,6 +4,11 @@ from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama.llms import OllamaLLM
 from langchain.prompts import ChatPromptTemplate
+from Model.vector_database import create_vector_database
+
+
+
+
 
 app = Flask(__name__)
 
@@ -28,7 +33,7 @@ def query():
     start_time = time.time()
     
     # Run create_database.py to generate/update vector database
-    create_vector_database()
+    #First run vector_database.py create_vector_database()
 
     embedding_function = OllamaEmbeddings(model="llama3.1:latest")
     db = Chroma(persist_directory=CHROMA_PATH, embedding_function=embedding_function)
@@ -46,7 +51,6 @@ def query():
     response_text = model.invoke(query_text)
 
     sources = [doc.metadata.get("source", None) for doc, _score in results]
-    formatted_response = f"Response: {response_text}\nSources: {sources}"
 
     end_time = time.time()
     return jsonify({

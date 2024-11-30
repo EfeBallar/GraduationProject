@@ -10,7 +10,7 @@ import time
 
 
 CHROMA_PATH = "chroma"
-DATA_PATH = "data"
+DATA_PATH = "Data"
 
 
 def create_vector_database():
@@ -35,7 +35,7 @@ def load_documents():
 def split_text(documents: list[Document]):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
-        chunk_overlap=500,#10%
+        chunk_overlap=100,#10%
         length_function=len,
         add_start_index=True,
     )
@@ -55,3 +55,6 @@ def save_to_chroma(chunks: list[Document]):
         chunks, OllamaEmbeddings(model="llama3.1:latest"), persist_directory=CHROMA_PATH
     )
     print(f"Saved {len(chunks)} chunks to {CHROMA_PATH}.")
+
+if __name__=="__main__":
+    create_vector_database()
