@@ -91,7 +91,12 @@ def query():
         filtered_results = [(doc, score) for doc, score in results if score >= THRESHOLD]
 
         if len(filtered_results) == 0:
-            return jsonify({"error": "Unable to find matching results"}), 404
+            end_time = time.time()
+            return jsonify({
+                "response": "Unable to find matching results from course material.",
+                "sources": [],
+                "execution_time": f"{end_time - start_time:.2f} seconds"
+            })
 
         context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in filtered_results])
 
