@@ -40,6 +40,8 @@ def split_text(documents: list[Document]):
         add_start_index=True,
     )
     chunks = text_splitter.split_documents(documents)
+    for i, chunk in enumerate(chunks):
+        chunk.metadata["page_number"] = i + 1  # Add page number metadata
     print(f"Split {len(documents)} documents into {len(chunks)} chunks.")
 
     return chunks
