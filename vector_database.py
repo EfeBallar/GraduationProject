@@ -9,25 +9,25 @@ import shutil
 import time
 
 MODEL="llama3.1:8b"
-CHROMA_PATH = "chroma/CS307"
-DATA_PATH = "Data/CS307"
+CHROMA_PATH = "chroma"
+DATA_PATH = "Data"
 
 
-def create_vector_database():
+def create_vector_database(term, course_code):
     start_time = time.time()
-    generate_data_store()
+    generate_data_store(term, course_code)
     end_time = time.time()
     print(f"Database creation time: {end_time - start_time:.2f} seconds")
 
 
-def generate_data_store():
-    documents = load_documents()
+def generate_data_store(term, course_code):
+    documents = load_documents(term, course_code)
     chunks = split_text(documents)
-    save_to_chroma(chunks)
+    save_to_chroma(chunks, term, course_code)
 
 
-def load_documents():
-    loader = DirectoryLoader(DATA_PATH) #glob can be specified
+def load_documents(term, course_code):
+    loader = DirectoryLoader(f"{DATA_PATH}/{term}/{course_code}") #glob can be specified
     documents = loader.load()
     return documents
 
@@ -47,16 +47,19 @@ def split_text(documents: list[Document]):
     return chunks
 
 
-def save_to_chroma(chunks: list[Document]):
+def save_to_chroma(chunks: list[Document], term, course_code):
     # Clear out the database first.
-    if os.path.exists(CHROMA_PATH):
-        shutil.rmtree(CHROMA_PATH)
+    course_chroma_path = f"{CHROMA_PATH}/{term}/{course_code}"
+    if os.path.exists(course_chroma_path):
+        shutil.rmtree(course_chroma_path)
 
     # Create a new DB from the documents.
     db = Chroma.from_documents(
-        chunks, OllamaEmbeddings(model=MODEL), persist_directory=CHROMA_PATH
+        chunks, OllamaEmbeddings(model=MODEL), persist_directory=course_chroma_path
     )
-    print(f"Saved {len(chunks)} chunks to {CHROMA_PATH}.")
+    print(f"Saved {len(chunks)} chunks to {course_chroma_path}.")
 
 if __name__=="__main__":
-    create_vector_database()
+    term = input("Enter academic term: ")
+    course_code = input("Enter course code: ")
+    create_vector_database(term, course_code)
