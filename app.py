@@ -5,7 +5,7 @@ from Routes.getUserChats import get_user_chats
 from Routes.addPersonToCourse import add_person_to_course
 from Routes.addCourse import add_course
 from Routes.removePersonFromCourse import remove_person_from_course
-
+from Routes.getUserID import get_user_id
 
 app = Flask(__name__) #http://localhost:5000
 
@@ -33,6 +33,9 @@ def add_course_route():
 def remove_person_from_course_route():
     return remove_person_from_course()
 
+@app.route('/getUserID', methods=['GET'])
+def get_user_id_route():
+    return get_user_id()
 
 if __name__ == "__main__":
     app.run()
