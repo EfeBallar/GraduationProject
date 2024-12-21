@@ -7,7 +7,7 @@ from Routes.addCourse import add_course
 from Routes.removePersonFromCourse import remove_person_from_course
 from Routes.getCoursesOfALecturer import get_courses_of_a_lecturer
 from connectToDB import connect_to_database
-
+from Routes.getUserID import get_user_id
 
 app = Flask(__name__) #http://localhost:5000
 
@@ -42,6 +42,9 @@ def add_course_route():
 def remove_person_from_course_route():
     return remove_person_from_course(db)
 
+@app.route('/getUserID', methods=['GET'])
+def get_user_id_route():
+    return get_user_id(db)
 
 if __name__ == "__main__":
     app.run()
