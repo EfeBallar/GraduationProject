@@ -5,7 +5,6 @@ import os
 
 def remove_file_from_course(course_db):
     try:
-
         # These will be obtained from raw JSON body
         file_name = request.json.get('file_name')
         course_code = request.json.get('course_code')

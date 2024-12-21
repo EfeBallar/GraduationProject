@@ -4,16 +4,16 @@ from bson import ObjectId
 
 def get_user_chats(db):
     try:
-        user_id = request.json.get('user_id')
-        if not user_id:
-            return jsonify({"error": "User ID is required"}), 400
+        user_name = request.json.get('user_name')
+        if not user_name:
+            return jsonify({"error": "Username is required"}), 400
 
-        user = db.Users.find_one({"_id": ObjectId(user_id)})
+        user = db.Users.find_one({"email": f"{user_name}@sabanciuniv.edu"})
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         # Find all chats where the user is a participant
-        chats = list(db.Chats.find({"user_id": user_id}))
+        chats = list(db.Chats.find({"user_id": str(user["_id"])}))
         
         # Convert ObjectId to string and prepare chats for JSON serialization
         for chat in chats:

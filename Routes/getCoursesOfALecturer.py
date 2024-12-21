@@ -3,7 +3,6 @@ from flask import request, jsonify
 
 def get_courses_of_a_lecturer(db):
     try:
-
         # These will be obtained from raw JSON body
         user_name = request.json.get('user_name')
 
