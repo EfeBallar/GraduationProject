@@ -21,4 +21,5 @@ def connect_to_database():
 
     # Reference to the database and collection
     db = client.CourseAssistantDB
+    print("Connection with database is established")
     return db

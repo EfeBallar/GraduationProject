@@ -1,7 +1,6 @@
 from langchain.prompts import ChatPromptTemplate
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama.llms import OllamaLLM
-from connectToDB import connect_to_database
 from datetime import datetime, timezone
 from langchain_chroma import Chroma
 from flask import request, jsonify
@@ -30,9 +29,8 @@ Answer the question based on the above context: {question}
 
 """
 
-course_db = connect_to_database()
 
-def query(term, course, chat_id=None):
+def query(course_db, term, course, chat_id=None):
     
     # These will be obtained from raw JSON body
     query_text = request.json.get('query_text')

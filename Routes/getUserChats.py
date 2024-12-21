@@ -1,10 +1,8 @@
 """THIS FUNCTION GETS ALL CHATS FOR A USER"""
 from flask import request, jsonify
 from bson import ObjectId
-from connectToDB import connect_to_database
 
-def get_user_chats():
-    db = connect_to_database()
+def get_user_chats(db):
     try:
         user_id = request.json.get('user_id')
         if not user_id:

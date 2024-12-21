@@ -1,10 +1,8 @@
 """THIS FUNCTION ADDS A PERSON (INSTRUCTOR/ASSISTANT) TO A COURSE"""
-from connectToDB import connect_to_database
 from flask import request, jsonify
 from bson import ObjectId
 
-def add_person_to_course():
-    db = connect_to_database()
+def add_person_to_course(db):
     try:
 
         # These will be obtained from raw JSON body

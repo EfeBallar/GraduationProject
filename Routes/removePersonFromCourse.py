@@ -1,10 +1,8 @@
 """THIS FUNCTION REMOVES A PERSON (INSTRUCTOR/ASSISTANT) FROM A COURSE"""
-from connectToDB import connect_to_database
 from flask import request, jsonify
 from bson import ObjectId
 
-def remove_person_from_course():
-    db = connect_to_database()
+def remove_person_from_course(db):
     try:
 
         # These will be obtained from raw JSON body
