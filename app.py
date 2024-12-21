@@ -1,7 +1,8 @@
 from flask import Flask
 from flask_cors import CORS
-from Routes.getUserChats import get_user_chats
 from Routes.query import query
+from Routes.getUserChats import get_user_chats
+from Routes.addPersonToCourse import add_person_to_course
 
 app = Flask(__name__) #http://localhost:5000
 
@@ -16,6 +17,14 @@ def query_route(term, course, chat_id=None):
 @app.route('/getUserChats/', methods=['GET'])  
 def get_user_chats_route():
     return get_user_chats()
+
+@app.route('/addPersonToCourse/', methods=['PUT'])
+def add_person_to_course_route():
+    return add_person_to_course()
+
+
+
+
 
 if __name__ == "__main__":
     app.run()
