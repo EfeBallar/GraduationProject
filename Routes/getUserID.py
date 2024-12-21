@@ -6,7 +6,7 @@ def get_user_id(db):
     try:
         user_name = request.json.get('user_name')
         if not user_name:
-            return jsonify({"error": "User ID is required"}), 400
+            return jsonify({"error": "user_name is required"}), 400
 
         user = db.Users.find_one({"email": (user_name+"@sabanciuniv.edu")})
         

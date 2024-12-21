@@ -8,11 +8,11 @@ from Routes.removePersonFromCourse import remove_person_from_course
 from Routes.getCoursesOfALecturer import get_courses_of_a_lecturer
 from connectToDB import connect_to_database
 from Routes.getUserID import get_user_id
+from Routes.getPersonnelFromCourse import get_personnel_from_course
 
 app = Flask(__name__) #http://localhost:5000
 
 db = connect_to_database()
-
 
 # CORS Policy
 CORS(app, origins=["http://localhost:3000"])
@@ -45,6 +45,10 @@ def remove_person_from_course_route():
 @app.route('/getUserID', methods=['GET'])
 def get_user_id_route():
     return get_user_id(db)
+
+@app.route('/getPersonnelFromCourse', methods=['GET'])
+def get_personnel_from_course_route():
+    return get_personnel_from_course(db)
 
 if __name__ == "__main__":
     app.run()
