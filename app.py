@@ -4,6 +4,7 @@ from Routes.query import query
 from Routes.getUserChats import get_user_chats
 from Routes.addPersonToCourse import add_person_to_course
 from Routes.addCourse import add_course
+from Routes.removePersonFromCourse import remove_person_from_course
 
 
 app = Flask(__name__) #http://localhost:5000
@@ -27,6 +28,10 @@ def add_person_to_course_route():
 @app.route('/addCourse', methods=['POST'])
 def add_course_route():
     return add_course()
+
+@app.route('/removePersonFromCourse', methods=['DELETE'])
+def remove_person_from_course_route():
+    return remove_person_from_course()
 
 
 if __name__ == "__main__":
