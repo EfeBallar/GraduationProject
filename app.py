@@ -7,11 +7,15 @@ from pymongo.server_api import ServerApi
 from datetime import datetime, timezone
 from langchain_chroma import Chroma
 from dotenv import load_dotenv
+from flask_cors import CORS
 from bson import ObjectId
 import time
 import os
 
 app = Flask(__name__)
+
+# Implementing CORS Policy
+CORS(app, origins=["http://localhost:3000"])
 
 # Get info from .env file
 load_dotenv()
@@ -60,45 +64,54 @@ Answer the question based only on the following context:
 
 Answer the question based on the above context: {question}
 
-If no context is provided, kindly inform the user that you cannot answer the question since it is not related with school-related work.
 """
-#http://localhost:5000/course/query
-@app.route('/course/query', methods=['POST'])
-def query():
-    chat_course = request.json.get('course')
+#http://localhost:5000/<term>/<course>/<chat_id>
+@app.route('/<term>/<course>/<chat_id>', methods=['POST'])
+@app.route('/<term>/<course>/', methods=['POST'])  # Route without chat_id
+def query(term, course, chat_id=None):
+    # Debug print statements for info extraction
+    print(f"Current Term {term}")
+    print(f"Current Course {course}")
+    if(chat_id):
+        print(f"Current Chat ID {chat_id}")
+    
+    # These will be obtained from raw JSON body
     query_text = request.json.get('query_text')
     user_id = request.json.get('user_id')
-    chat_id = request.json.get('chat_id')
 
-    if not query_text or not chat_course or not user_id:
+    # Debug print statements for info extraction
+    print(f"User Query Text: {query_text}")
+    print(f"Sender User ID: {user_id}")
+
+    # Bunlara gerek yok frontend bilgiler eksikse request atamicak sekilde ayarlanacak
+    if not query_text or not course or not user_id:
         return jsonify({"error": "Missing query text, course, or user_id"}), 400
+    
+    chroma_path = f"{CHROMA_PATH}/{term}/{course}/"
 
-    chroma_path = f"{CHROMA_PATH}/{chat_course}"
+    
+    print(chroma_path)
+
     start_time = time.time()
 
-    context_text = ""
-    if chat_id:
-        existing_chat = chats_collection.find_one({"_id": ObjectId(f"{chat_id}")})
-        if existing_chat:
-            chatbot_messages = [msg["message_content"] for msg in existing_chat["messages"] if msg["sender"] == "chatbot"]
-            context_text = "\n\n".join(chatbot_messages[-3:])  # Get up to 3 previous messages
-        else:
-            return jsonify({"error": "Bad chat history ID"}), 400
+    db = Chroma(persist_directory=chroma_path, embedding_function=embedding_function)
+    results = db.similarity_search_with_relevance_scores(query_text)
+    for i, score in results:
+        print(score)
+    filtered_results = [(doc, score) for doc, score in results]
+    
 
-    if not context_text:
-        db = Chroma(persist_directory=chroma_path, embedding_function=embedding_function)
-        results = db.similarity_search_with_relevance_scores(query_text)
-        filtered_results = [(doc, score) for doc, score in results if score >= THRESHOLD]
+    if len(filtered_results) == 0:
+        end_time = time.time()
+        return jsonify({
+            "response": "Unable to find matching results from course material.",
+            "sources": [],
+            "execution_time": f"{end_time - start_time:.2f} seconds"
+        })
 
-        if len(filtered_results) == 0:
-            end_time = time.time()
-            return jsonify({
-                "response": "Unable to find matching results from course material.",
-                "sources": [],
-                "execution_time": f"{end_time - start_time:.2f} seconds"
-            })
+    context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in results])
 
-        context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in filtered_results])
+    print(context_text)
 
     prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
     prompt = prompt_template.format(context=context_text, question=query_text)
