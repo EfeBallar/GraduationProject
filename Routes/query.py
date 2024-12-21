@@ -30,7 +30,7 @@ Answer the question based on the above context: {question}
 
 """
 
-db = connect_to_database()
+course_db = connect_to_database()
 
 def query(term, course, chat_id=None):
     
@@ -65,7 +65,7 @@ def query(term, course, chat_id=None):
 
     response_text = model.invoke(prompt)
 
-    sources = list(set((doc.metadata.get("source", None), doc.metadata.get("page_number", None)) for doc, _score in filtered_results))
+    sources = list(set((doc.metadata.get("source", None)) for doc, _score in filtered_results))
 
     end_time = time.time()
 
@@ -82,7 +82,7 @@ def query(term, course, chat_id=None):
     }
 
     if chat_id:  # the chat has been previously created, append to chat history
-        db.Chats.update_one(
+        course_db.Chats.update_one(
             {"_id": ObjectId(f"{chat_id}")},
             {
                 "$push": {"messages": {"$each": [user_message, chatbot_message]}},
@@ -90,13 +90,23 @@ def query(term, course, chat_id=None):
             }
         )
     else:  # Create a new chat entry
+        # Create a short title for this new conversation
+        title_prompt = ChatPromptTemplate.from_template(
+            "Create a concise title (up to 6 words) for this conversation based on the user query:\n\nUser Query: {question}"
+        )
+        title_input = title_prompt.format(question=query_text)
+        title_response = model.invoke(title_input)
+
+        title = title_response.strip().replace('"', '').replace("'", '')
+
         chat_entry = {
             "user_id": user_id,
             "started_at": datetime.now(timezone.utc).isoformat(),
             "last_message_time": datetime.now(timezone.utc).isoformat(),
-            "messages": [user_message, chatbot_message]
+            "messages": [user_message, chatbot_message],
+            "title": f"{title}"
         }
-        db.Chats.insert_one(chat_entry)
+        course_db.Chats.insert_one(chat_entry)
 
     return jsonify({
         "response": response_text,

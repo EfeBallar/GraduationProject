@@ -17,17 +17,15 @@ def get_user_chats():
         # Find all chats where the user is a participant
         chats = list(db.Chats.find({"user_id": user_id}))
         
-        # Create a list of chat IDs with their last message times
-        chatsIDs_with_last_message_time = [
-            {
-            "chat_id": str(chat['_id']),
-            "last_message_time": chat.get('last_message_time')
-            }
-            for chat in chats
-        ]
+        # Convert ObjectId to string and prepare chats for JSON serialization
+        for chat in chats:
+            chat['_id'] = str(chat['_id'])
+        
+        # Create a sorted list of chat IDs with their last message times
+        chats.sort(key=lambda x: x['last_message_time'], reverse=True)
 
         return jsonify({
-            "chats": chatsIDs_with_last_message_time
+            "chats": chats
         }), 200
 
     except Exception as e:
