@@ -1,20 +1,18 @@
-"""THIS FUNCTION GETS ALL CHATS FOR A USER, GIVEN THEIR EMAIL"""
+"""THIS FUNCTION GETS ALL CHATS FOR A USER"""
 from flask import request, jsonify
+from bson import ObjectId
 from connectToDB import connect_to_database
 
 def get_user_chats():
     db = connect_to_database()
     try:
-        email = request.json.get('email')
-        if not email:
-            return jsonify({"error": "Email is required"}), 400
+        user_id = request.json.get('user_id')
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
 
-        # First, find the user by email to get their user_id
-        user = db.Users.find_one({"email": email})
+        user = db.Users.find_one({"_id": ObjectId(user_id)})
         if not user:
             return jsonify({"error": "User not found"}), 404
-
-        user_id = str(user['_id'])
 
         # Find all chats where the user is a participant
         chats = list(db.Chats.find({"user_id": user_id}))
