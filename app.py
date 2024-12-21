@@ -11,6 +11,7 @@ from Routes.getUserID import get_user_id
 from Routes.getPersonnelFromCourse import get_personnel_from_course
 from Routes.removeFileFromCourse import remove_file_from_course
 from Routes.addFileToCourse import add_file_to_course
+from Routes.removeAllFilesOfACourse import remove_all_files_from_course
 
 app = Flask(__name__) #http://localhost:5000
 
@@ -56,9 +57,14 @@ def get_personnel_from_course_route():
 def remove_file_from_course_route():
     return remove_file_from_course(db)
 
+@app.route('/removeAllFilesFromCourse', methods=['DELETE'])
+def remove_all_files_from_course_route():
+    return remove_all_files_from_course(db) 
+
 @app.route('/addFileToCourse', methods=['POST'])
 def add_file_to_course_route():
     return add_file_to_course(db) 
+
 
 if __name__ == "__main__":
     app.run()

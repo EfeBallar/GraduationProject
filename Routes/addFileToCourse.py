@@ -20,6 +20,9 @@ def add_file_to_course(course_db):
         
         try:
             file_path = os.path.join('data', 'F24-25', course_code)
+            if not os.path.exists(file_path):
+                os.makedirs(file_path)
+
             file_to_add.save(os.path.join(file_path, file_to_add.filename)) # Save with the full path
             create_vector_database("F24-25", course_code)
 
