@@ -21,6 +21,9 @@ def create_vector_database(term, course_code):
 
 def generate_data_store(term, course_code):
     documents = load_documents(term, course_code)
+    if not documents:
+        print(f"No documents found for {course_code}.")
+        return
     chunks = split_text(documents)
     save_to_chroma(chunks, term, course_code)
 
