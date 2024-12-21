@@ -1,6 +1,6 @@
 """THIS FUNCTION REMOVES A FILE FROM A COURSE"""
-from flask import request, jsonify
 from vector_database import create_vector_database
+from flask import request, jsonify
 import os
 
 def remove_file_from_course(course_db):

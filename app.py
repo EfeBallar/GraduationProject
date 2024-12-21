@@ -13,6 +13,7 @@ from Routes.getPersonnelFromCourse import get_personnel_from_course
 from Routes.removeFileFromCourse import remove_file_from_course
 from Routes.addFileToCourse import add_file_to_course
 from Routes.removeAllFilesOfACourse import remove_all_files_from_course
+from Routes.getFilesOfACourse import get_files_of_a_course
 
 app = Flask(__name__) #http://localhost:5000
 
@@ -39,8 +40,12 @@ def get_user_chats_route():
     return get_user_chats(db)
 
 @app.route('/getLecturerCourses', methods=['GET'])  
-def get_lecturer_courses():
+def get_lecturer_courses_route():
     return get_courses_of_a_lecturer(db)
+
+@app.route('/getCourseFiles', methods=['GET'])  
+def get_course_files_route():
+    return get_files_of_a_course()
 
 ##################### POST Routes #####################
 @app.route('/<term>/<course>/<chat_id>', methods=['POST'])

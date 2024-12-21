@@ -1,6 +1,5 @@
 """THIS FUNCTION RETURNS USER ID OF A USER"""
 from flask import request, jsonify
-from connectToDB import connect_to_database
 
 def get_user_id(db):
     try:

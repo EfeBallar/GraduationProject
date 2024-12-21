@@ -1,6 +1,6 @@
 """THIS FUNCTION ADDS A FILE TO A COURSE"""
-from flask import request, jsonify
 from vector_database import create_vector_database
+from flask import request, jsonify
 import os
 
 def add_file_to_course(course_db):
