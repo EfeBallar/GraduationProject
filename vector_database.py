@@ -84,7 +84,7 @@ def save_to_chroma(chunks: list[Document], term, course_code):
 
     print(f"Saved {len(chunks)} chunks to {course_chroma_path}.")
 
-if _name=="main_":
+if __name__=="__main__":
     term = 'F24-25'
     # course_codes = ['CS302','CS404','CS305','CS307']
     course_codes = ['CS307']
