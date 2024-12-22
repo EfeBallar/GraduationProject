@@ -58,10 +58,6 @@ def get_course_files_route():
 def query_route(term, course, chat_id=None):
     return query(db, term, course, chat_id)
 
-@app.route('/addFileToCourse', methods=['POST'])
-def add_file_to_course_route():
-    return add_file_to_course(db) 
-
 @app.route('/addCourse', methods=['POST'])
 def add_course_route():
     return add_course(db)
@@ -70,6 +66,10 @@ def add_course_route():
 @app.route('/addPersonToCourse', methods=['PUT'])
 def add_person_to_course_route():
     return add_person_to_course(db)
+
+@app.route('/addFileToCourse', methods=['PUT'])
+def add_file_to_course_route():
+    return add_file_to_course(db) 
 
 ##################### DELETE Routes #####################
 @app.route('/removeFileFromCourse', methods=['DELETE'])

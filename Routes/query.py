@@ -56,14 +56,20 @@ def query(course_db, term, course, chat_id=None):
             "execution_time": f"{end_time - start_time:.2f} seconds"
         })
 
-    context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in results])
+    context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in filtered_results])
 
     prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
     prompt = prompt_template.format(context=context_text, question=query_text)
 
     response_text = model.invoke(prompt)
 
-    sources = list(set((doc.metadata.get("source", None)) for doc, _score in filtered_results))
+    sources = [
+        {
+            "source": doc.metadata.get("source", "unknown"),
+            "page": doc.metadata.get("page", None)
+        }
+        for doc, _score in filtered_results
+    ]
 
     end_time = time.time()
 
