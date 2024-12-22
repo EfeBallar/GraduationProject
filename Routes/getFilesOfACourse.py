@@ -1,11 +1,16 @@
-"""THIS FUNCTION RETURNS THE LIST OF COURSES OF A LECTURER"""
+"""THIS FUNCTION RETURNS THE FILES OF A COURSE"""
 from flask import request, jsonify
 import os
 
-def get_files_of_a_course():
+def get_files_of_a_course(db):
     try:
         course_code = request.json.get('course_code')
 
+        course = db.Courses.find_one({"courseCode": course_code})
+        
+        if not course:
+            return jsonify({"error": "Course not found"}), 404
+        
         file_path = os.path.abspath(os.path.join('data', 'F24-25', course_code))
 
         if not os.path.exists(file_path):
