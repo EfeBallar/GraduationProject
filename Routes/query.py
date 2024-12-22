@@ -53,6 +53,12 @@ Current Question: {question}
 
 Remember to consider both the context and the chat history when forming your answer.
 """
+def normalize_scores(scores):
+    min_score = min(scores)
+    max_score = max(scores)
+    if max_score - min_score == 0:
+        return [0.0 for _ in scores]  # Avoid division by zero
+    return [(score - min_score) / (max_score - min_score) for score in scores]
 
 def query(course_db):
     course = request.json.get('course')
@@ -124,8 +130,29 @@ def query(course_db):
         chroma_path = f"{CHROMA_PATH}/{term}/{course}/"
         db = Chroma(persist_directory=chroma_path, embedding_function=embedding_function)
         results = db.similarity_search_with_relevance_scores(query_text, k = 30)
-        filtered_results = [(doc, score) for doc, score in results if score >= THRESHOLD]
+        # Debug: Check score range
+        scores = [score for _, score in results]
+        min_score = min(scores)
+        max_score = max(scores)
+        print(f"Relevance Scores - Min: {min_score}, Max: {max_score}")
         
+        # Option 1: Normalize Scores
+        normalized_scores = normalize_scores(scores)
+        # Option 2: Use Top-K without threshold
+        # normalized_scores = scores  # If you prefer to use raw scores
+
+        # Option 1: Filtering with normalized scores
+        filtered_results = [
+            (doc, norm_score) 
+            for (doc, _), norm_score in zip(results, normalized_scores) 
+            if norm_score >= THRESHOLD
+        ]
+
+        # Option 2: Using Top-K without threshold
+        # filtered_results = results[:10]  # Example: top 10 results
+        #filtered_results = [(doc, score) for doc, score in results if score >= THRESHOLD]
+
+        # if score >= THRESHOLD
         if len(filtered_results) == 0:
             end_time = time.time()
             return jsonify({
