@@ -14,6 +14,7 @@ from Routes.removeFileFromCourse import remove_file_from_course
 from Routes.addFileToCourse import add_file_to_course
 from Routes.removeAllFilesOfACourse import remove_all_files_from_course
 from Routes.getFilesOfACourse import get_files_of_a_course
+from Routes.getChatContent import get_chat_content
 
 app = Flask(__name__) #http://localhost:5000
 
@@ -38,6 +39,10 @@ def get_personnel_from_course_route():
 @app.route('/getUserChats', methods=['GET'])  
 def get_user_chats_route():
     return get_user_chats(db)
+
+@app.route('/getChatContent', methods=['GET'])  
+def get_chat_content_route():
+    return get_chat_content(db)
 
 @app.route('/getLecturerCourses', methods=['GET'])  
 def get_lecturer_courses_route():
