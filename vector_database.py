@@ -31,7 +31,7 @@ def generate_data_store(term, course_code):
 def load_documents(term, course_code):
     loader = DirectoryLoader(
                 f"{DATA_PATH}/{term}/{course_code}",
-                # glob="*/.pdf",  # Only load PDF files
+                #glob="*/.pdf",  # Only load PDF files (erroneous)
                 loader_cls=PyPDFLoader,
                 show_progress=True,
                 use_multithreading=True
@@ -43,7 +43,7 @@ def load_documents(term, course_code):
 def split_text(documents: list[Document]):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1500,
-        chunk_overlap=150,  # increased overlap
+        chunk_overlap=150,  # 10% overlap
         length_function=len,
         add_start_index=True,
     )
