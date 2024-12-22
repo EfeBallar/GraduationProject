@@ -30,11 +30,23 @@ Answer the question based on the above context: {question}
 """
 
 
-def query(course_db, term, course, chat_id=None):
-    
+def query(course_db):
     # These will be obtained from raw JSON body
+    course = request.json.get('course')
+    term = request.json.get('term') or None
+
+
     query_text = request.json.get('query_text')
     user_id = request.json.get('user_id')
+    chat_id = request.json.get('chat_id')
+
+    print("query icinde")
+    print(f"term: {term}")
+    print(f"course: {course}")
+    print(f"query text: {query_text}")
+    print(f"user id: {user_id}")
+    print(f"chat id: {chat_id}")
+
 
     if not query_text or not course or not user_id:
         return jsonify({"error": "Missing query text, course, or user_id"}), 400
@@ -48,6 +60,7 @@ def query(course_db, term, course, chat_id=None):
 
     filtered_results = [(doc, score) for doc, score in results if score >= THRESHOLD]
     
+    # Burayi degistir kaynak yoksa ona gore mesaj at 200 return atma
     if len(filtered_results) == 0:
         end_time = time.time()
         return jsonify({
@@ -103,17 +116,21 @@ def query(course_db, term, course, chat_id=None):
 
         title = title_response.strip().replace('"', '').replace("'", '')
 
+
         chat_entry = {
             "user_id": user_id,
             "started_at": datetime.now(timezone.utc).isoformat(),
             "last_message_time": datetime.now(timezone.utc).isoformat(),
             "messages": [user_message, chatbot_message],
-            "title": f"{title}"
+            "title": title
         }
-        course_db.Chats.insert_one(chat_entry)
+
+        result = course_db.Chats.insert_one(chat_entry) # result holds the information about newly inserted chat
+        chat_id = str(result.inserted_id)
 
     return jsonify({
-        "response": response_text,
+        "chat_id": chat_id,
+        "model_response": response_text,
         "sources": sources,
         "execution_time": f"{end_time - start_time:.2f} seconds"
-    })
+    }), 200

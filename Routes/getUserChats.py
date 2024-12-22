@@ -16,14 +16,12 @@ def extract_fields(data):
 def get_user_chats(db):
     try:
         user_name = request.args.get('user_name')  # Get 'user_name' from query parameters
-
         if not user_name:
             return jsonify({"error": "Username is required"}), 400
-
+        
         user = db.Users.find_one({"email": f"{user_name}@sabanciuniv.edu"})
         if not user:
             return jsonify({"error": "User not found"}), 404
-
 
         # Find all chats where the user is a participant
         chats = list(db.Chats.find({"user_id": str(user["_id"])}))

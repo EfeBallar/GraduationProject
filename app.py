@@ -50,13 +50,12 @@ def get_lecturer_courses_route():
 
 @app.route('/getCourseFiles', methods=['GET'])  
 def get_course_files_route():
-    return get_files_of_a_course(db)
+    return get_files_of_a_course()
 
 ##################### POST Routes #####################
-@app.route('/<term>/<course>/<chat_id>', methods=['POST'])
-@app.route('/<term>/<course>', methods=['POST'])  # Route without chat_id
-def query_route(term, course, chat_id=None):
-    return query(db, term, course, chat_id)
+@app.route('/', methods=['POST'])
+def query_route():
+    return query(db)
 
 @app.route('/addCourse', methods=['POST'])
 def add_course_route():
