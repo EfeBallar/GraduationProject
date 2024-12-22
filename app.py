@@ -50,7 +50,7 @@ def get_lecturer_courses_route():
 
 @app.route('/getCourseFiles', methods=['GET'])  
 def get_course_files_route():
-    return get_files_of_a_course()
+    return get_files_of_a_course(db)
 
 ##################### POST Routes #####################
 @app.route('/', methods=['POST'])
