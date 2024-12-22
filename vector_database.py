@@ -1,9 +1,8 @@
-from langchain_community.document_loaders import DirectoryLoader
+from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 from langchain_ollama import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain.document_loaders import DirectoryLoader, PyPDFLoader
 import shutil
 import time
 import os
@@ -32,7 +31,7 @@ def generate_data_store(term, course_code):
 def load_documents(term, course_code):
     loader = DirectoryLoader(
                 f"{DATA_PATH}/{term}/{course_code}",
-                glob="*/.pdf",  # Only load PDF files
+                # glob="*/.pdf",  # Only load PDF files
                 loader_cls=PyPDFLoader,
                 show_progress=True,
                 use_multithreading=True
@@ -86,7 +85,8 @@ def save_to_chroma(chunks: list[Document], term, course_code):
 
 if __name__=="__main__":
     term = 'F24-25'
-    course_codes = ['CS307']
+    # course_codes = ['CS302','CS404','CS305','CS307']
+    course_codes = ['CS404']
     for course_code in course_codes:
         create_vector_database(term, course_code)
         print(f"Processed the documents for {course_code}.")

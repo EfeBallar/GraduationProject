@@ -19,7 +19,8 @@ def get_user_chats(db):
         if not user_name:
             return jsonify({"error": "Username is required"}), 400
         
-        user = db.Users.find_one({"email": f"{user_name}@sabanciuniv.edu"})
+        user = db.Users.find_one({"_id": ObjectId(user_name)})
+        # user = db.Users.find_one({"email": f"{user_name}@sabanciuniv.edu"})
         if not user:
             return jsonify({"error": "User not found"}), 404
 

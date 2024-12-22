@@ -78,7 +78,7 @@ def query(course_db):
 
     sources = [
         {
-            "source": doc.metadata.get("source", "unknown"),
+            "source": os.path.basename(doc.metadata.get("source", "unknown")),
             "page": doc.metadata.get("page", None)
         }
         for doc, _score in filtered_results
@@ -95,7 +95,8 @@ def query(course_db):
     chatbot_message = {
         "sender": "chatbot",
         "message_content": response_text,
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "sources": sources
     }
 
     if chat_id:  # the chat has been previously created, append to chat history
