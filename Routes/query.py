@@ -6,8 +6,8 @@ from langchain_chroma import Chroma
 from flask import request, jsonify
 from dotenv import load_dotenv
 from bson import ObjectId
-from langchain.memory import ConversationBufferMemory
-from langchain.chains import ConversationalRetrievalChain
+#from langchain.memory import ConversationBufferMemory #TOD BUNLARA BAK
+#from langchain.chains import ConversationalRetrievalChain
 import time
 import os
 
@@ -123,9 +123,9 @@ def query(course_db):
         # Handle content-related query
         chroma_path = f"{CHROMA_PATH}/{term}/{course}/"
         db = Chroma(persist_directory=chroma_path, embedding_function=embedding_function)
-        results = db.similarity_search_with_relevance_scores(query_text)
+        results = db.similarity_search_with_relevance_scores(query_text, k = 30)
         filtered_results = [(doc, score) for doc, score in results if score >= THRESHOLD]
-
+        
         if len(filtered_results) == 0:
             end_time = time.time()
             return jsonify({

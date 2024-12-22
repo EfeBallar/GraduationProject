@@ -42,8 +42,8 @@ def load_documents(term, course_code):
 
 def split_text(documents: list[Document]):
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1500,
-        chunk_overlap=150,  # 10% overlap
+        chunk_size=1000,
+        chunk_overlap=200,  # 20% overlap
         length_function=len,
         add_start_index=True,
     )
@@ -81,12 +81,13 @@ def save_to_chroma(chunks: list[Document], term, course_code):
         OllamaEmbeddings(model=MODEL), 
         persist_directory=course_chroma_path
     )
+
     print(f"Saved {len(chunks)} chunks to {course_chroma_path}.")
 
-if __name__=="__main__":
+if _name=="main_":
     term = 'F24-25'
     # course_codes = ['CS302','CS404','CS305','CS307']
-    course_codes = ['CS404']
+    course_codes = ['CS307']
     for course_code in course_codes:
         create_vector_database(term, course_code)
         print(f"Processed the documents for {course_code}.")
