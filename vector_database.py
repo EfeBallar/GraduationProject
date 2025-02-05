@@ -2,13 +2,16 @@ from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 from langchain_ollama import OllamaEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
+from dotenv import load_dotenv
+from tqdm import tqdm
 import shutil
 import time
 import os
 
-MODEL="llama3.1:8b"
-CHROMA_PATH = "chroma"
+load_dotenv()
+MODEL=os.getenv("MODEL")
+CHROMA_PATH = os.getenv("CHROMA_PATH")
 DATA_PATH = "data"
 
 
@@ -31,7 +34,6 @@ def generate_data_store(term, course_code):
 def load_documents(term, course_code):
     loader = DirectoryLoader(
                 f"{DATA_PATH}/{term}/{course_code}",
-                #glob="*/.pdf",  # Only load PDF files (erroneous)
                 loader_cls=PyPDFLoader,
                 show_progress=True,
                 use_multithreading=True
@@ -70,23 +72,26 @@ def split_text(documents: list[Document]):
 
 
 def save_to_chroma(chunks: list[Document], term, course_code):
-    # Clear out the database first.
+    # Define the path and clear out the existing database.
     course_chroma_path = f"{CHROMA_PATH}/{term}/{course_code}"
     if os.path.exists(course_chroma_path):
         shutil.rmtree(course_chroma_path)
 
-    # Create a new DB from the documents.
-    db = Chroma.from_documents(
-        chunks, 
-        OllamaEmbeddings(model=MODEL), 
-        persist_directory=course_chroma_path
+    db = Chroma(
+        embedding_function=OllamaEmbeddings(model=MODEL),
+        persist_directory=course_chroma_path,
+        collection_metadata={"hnsw:space": "cosine"}
     )
+    # Add each chunk individually (or in batches) with a progress bar.
+    for chunk in tqdm(chunks, desc="Saving chunks to Chroma"):
+        db.add_documents([chunk])
+    
     print(f"Saved {len(chunks)} chunks to {course_chroma_path}.")
 
-if __name__=="__main__":
+if __name__=="__main__":  
     term = 'F24-25'
     # course_codes = ['CS302','CS404','CS305','CS307']
-    course_codes = ['CS302']
+    course_codes = ['CS307']
     for course_code in course_codes:
         create_vector_database(term, course_code)
         print(f"Processed the documents for {course_code}.")
