@@ -1,7 +1,12 @@
 """THIS FUNCTION ADDS A FILE TO A COURSE"""
-from vector_database import create_vector_database
+from vector_database import add_chunks_to_faiss,embed_chunks,generate_chunks_from_pdf
 from flask import request, jsonify
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+DOC_PATH = os.getenv("DOC_PATH")
+V_DB_PATH = os.getenv("V_DB_PATH")
 
 def add_file_to_course(course_db):
     try:
@@ -19,12 +24,15 @@ def add_file_to_course(course_db):
             return jsonify({"error": "Course not found"}), 404
         
         try:
-            file_path = os.path.join('data', 'F24-25', course_code)
+            file_path = os.path.join(DOC_PATH + "\\" + course_code)
             if not os.path.exists(file_path):
                 os.makedirs(file_path)
-
-            file_to_add.save(os.path.join(file_path, file_to_add.filename)) # Save with the full path
-            create_vector_database("F24-25", course_code)
+            doc_path=os.path.join(file_path, file_to_add.filename)
+            file_to_add.save(doc_path) # Save with the full path
+            
+            chunks_data = generate_chunks_from_pdf(doc_path, 1000, 200)
+            new_chunks_data = embed_chunks(chunks_data, "all-MiniLM-L6-v2", True)
+            add_chunks_to_faiss(new_chunks_data, course_code+"_faiss_index.idx", course_code+"_metadata.pkl")
 
         except:
             return jsonify({"error": "File could not be saved"}), 400

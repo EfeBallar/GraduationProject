@@ -1,6 +1,10 @@
 """THIS FUNCTION RETURNS THE FILES OF A COURSE"""
 from flask import request, jsonify
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+DOC_PATH = os.getenv("DOC_PATH")
 
 def get_files_of_a_course(db):
     try:
@@ -11,7 +15,7 @@ def get_files_of_a_course(db):
         if not course:
             return jsonify({"error": "Course not found"}), 404
         
-        file_path = os.path.abspath(os.path.join('data', 'F24-25', course_code))
+        file_path = os.path.abspath(os.path.join(DOC_PATH,course_code))
 
         if not os.path.exists(file_path):
             return jsonify({"files" : [], "file_count" : 0, "msg" : f"There is no path created for {course_code} in the database."}), 404

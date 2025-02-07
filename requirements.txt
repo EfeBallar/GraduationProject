@@ -1,0 +1,15 @@
+PyPDF2
+sentence-transformers
+torch
+faiss
+numpy
+pickle
+python-dotenv
+flask
+boto3
+langchain
+langchain-ollama
+pymongo
+flask-cors
+tqdm
+shutil

@@ -1,7 +1,11 @@
 """THIS FUNCTION REMOVES A FILE FROM A COURSE"""
-from vector_database import create_vector_database
+from vector_database import delete_chunks_from_file
 from flask import request, jsonify
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+DOC_PATH = os.getenv("DOC_PATH")
 
 def remove_file_from_course(course_db):
     try:
@@ -17,7 +21,7 @@ def remove_file_from_course(course_db):
         if not course:
             return jsonify({"error": "Course not found"}), 404
        
-        file_path = os.path.join('data', 'F24-25', course_code, file_name)
+        file_path = os.path.join(DOC_PATH, course_code, file_name)
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
@@ -26,8 +30,8 @@ def remove_file_from_course(course_db):
 
         else:
             return jsonify({"error": "File path doesn't exist."}), 404
-
-        create_vector_database("F24-25", course_code) # Recreate the vector database after removing
+        
+        delete_chunks_from_file(file_path, course_code +"_faiss_index.idx", course_code +"_metadata.pkl")
 
         return jsonify({
             "status": "success",

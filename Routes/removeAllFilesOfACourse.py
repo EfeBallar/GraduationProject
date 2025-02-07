@@ -1,6 +1,11 @@
 """THIS FUNCTION REMOVES ALL FILES OF A COURSE"""
 from flask import request, jsonify
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+DOC_PATH = os.getenv("DOC_PATH")
+V_DB_PATH = os.getenv("V_DB_PATH")
 
 def remove_all_files_from_course(course_db):
     try:
@@ -15,7 +20,7 @@ def remove_all_files_from_course(course_db):
         if not course:
             return jsonify({"error": "Course not found"}), 404
        
-        course_data_path = os.path.join('data', 'F24-25', course_code)
+        course_data_path = os.path.join(DOC_PATH, course_code)
         if os.path.exists(course_data_path):
             try:
                 for file in os.listdir(course_data_path):
@@ -27,11 +32,11 @@ def remove_all_files_from_course(course_db):
         else:
             return jsonify({"error": "Course path in data doesn't exist."}), 404
 
-        chroma_data_path = os.path.join('chroma', 'F24-25', course_code)
-        if os.path.exists(chroma_data_path):
+        faiss_data_path = os.path.join(V_DB_PATH, course_code)
+        if os.path.exists(faiss_data_path):
             try:
-                for file in os.listdir(chroma_data_path):
-                    os.remove(os.path.join(chroma_data_path, file))
+                for file in os.listdir(faiss_data_path):
+                    os.remove(os.path.join(faiss_data_path, file))
 
             except OSError as e:
                 return jsonify({"error": f"Error removing file: {str(e)}"}), 500
