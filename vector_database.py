@@ -6,41 +6,31 @@ from langchain_chroma import Chroma
 from dotenv import load_dotenv
 from tqdm import tqdm
 import shutil
-import time
 import os
 
 load_dotenv()
 MODEL=os.getenv("MODEL")
 CHROMA_PATH = os.getenv("CHROMA_PATH")
-DATA_PATH = "data"
+DOC_PATH = os.getenv("DOC_PATH")
 
-
-def create_vector_database(term, course_code):
-    start_time = time.time()
-    generate_data_store(term, course_code)
-    end_time = time.time()
-    print(f"Database creation time: {end_time - start_time:.2f} seconds")
-
-
-def generate_data_store(term, course_code):
+def create_vector_database(term, course_code):    
     documents = load_documents(term, course_code)
     if not documents:
         print(f"No documents found for {course_code}.")
         return
     chunks = split_text(documents)
     save_to_chroma(chunks, term, course_code)
-
+    print(f"Database created for {course_code}.")
 
 def load_documents(term, course_code):
     loader = DirectoryLoader(
-                f"{DATA_PATH}/{term}/{course_code}",
+                f"{DOC_PATH}/{term}/{course_code}",
                 loader_cls=PyPDFLoader,
                 show_progress=True,
                 use_multithreading=True
-            ) #glob can be specified
+            )
     documents = loader.load()
     return documents
-
 
 def split_text(documents: list[Document]):
     text_splitter = RecursiveCharacterTextSplitter(
@@ -54,7 +44,6 @@ def split_text(documents: list[Document]):
     chunks = []
     for doc in documents:
         # Extract page numbers if available in metadata
-        page_content = doc.page_content
         metadata = doc.metadata
         
         # Split the individual document
@@ -82,7 +71,7 @@ def save_to_chroma(chunks: list[Document], term, course_code):
         persist_directory=course_chroma_path,
         collection_metadata={"hnsw:space": "cosine"}
     )
-    # Add each chunk individually (or in batches) with a progress bar.
+    # Add each chunk with a progress bar.
     for chunk in tqdm(chunks, desc="Saving chunks to Chroma"):
         db.add_documents([chunk])
     
@@ -90,7 +79,6 @@ def save_to_chroma(chunks: list[Document], term, course_code):
 
 if __name__=="__main__":  
     term = 'F24-25'
-    # course_codes = ['CS302','CS404','CS305','CS307']
     course_codes = ['CS307']
     for course_code in course_codes:
         create_vector_database(term, course_code)
