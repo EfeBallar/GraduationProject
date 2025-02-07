@@ -12,41 +12,24 @@ DOC_PATH = os.getenv("DOC_PATH")
 V_DB_PATH = os.getenv("V_DB_PATH")
 
 def generate_chunks_from_pdf(pdf_path: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> list:
-    """
-    Returns:
-        List[str]: A list of text chunks extracted from the PDF.
-    """
-    text = ""
-    
-    # Open and read the PDF file
+    chunks = []
     try:
         with open(pdf_path, "rb") as f:
             reader = PyPDF2.PdfReader(f)
-            for i, page in enumerate(reader.pages):
+            for page_num, page in enumerate(reader.pages, start=1):
                 page_text = page.extract_text()
                 if page_text:
-                    # Optionally include page metadata for context
-                    text += f"\n\n--- Page {i+1} ---\n" + page_text
+                    words = page_text.split()
+                    index = 0
+                    while index < len(words):
+                        chunk_words = words[index: index + chunk_size]
+                        chunk_text = " ".join(chunk_words)
+                        chunks.append({"chunk": chunk_text, "page": page_num})
+                        if index + chunk_size >= len(words):
+                            break
+                        index += chunk_size - chunk_overlap
     except Exception as e:
         print(f"Error reading PDF file {pdf_path}: {e}")
-        return []
-    
-    # Split the extracted text into words
-    words = text.split()
-    chunks = []
-    index = 0
-
-    # Generate overlapping chunks
-    while index < len(words):
-        chunk_words = words[index: index + chunk_size]
-        chunk_text = " ".join(chunk_words)
-        chunks.append(chunk_text)
-        
-        if index + chunk_size >= len(words):
-            break
-        
-        index += chunk_size - chunk_overlap
-
     return chunks
 
 def process_multiple_pdfs(pdf_dir: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> list:
@@ -59,11 +42,15 @@ def process_multiple_pdfs(pdf_dir: str, chunk_size: int = 1000, chunk_overlap: i
     chunks_data = []
     for file_name in os.listdir(pdf_dir):
         if file_name.lower().endswith(".pdf"):
-            print(f"Processing PDF: {file_name}")
             pdf_path = os.path.join(pdf_dir, file_name)
             chunks = generate_chunks_from_pdf(pdf_path, chunk_size, chunk_overlap)
-            for chunk in chunks:
-                chunks_data.append({"pdf": file_name, "chunk": chunk})
+            for chunk_data in chunks:
+                # Each chunk_data is now a dict with keys "chunk" and "page"
+                chunks_data.append({
+                    "pdf": file_name,
+                    "chunk": chunk_data["chunk"],
+                    "page": chunk_data["page"]
+                })
     return chunks_data
 
 def embed_chunks(chunks_data: list, model_name: str = "all-MiniLM-L6-v2", convert_to_tensor: bool = True) -> list:
@@ -90,64 +77,69 @@ def save_chunks_to_faiss(chunks_data: list,
                          index_file: str = "faiss_index.idx",
                          metadata_file: str = "metadata.pkl") -> None:
     """
-    Save embeddings from chunks_data into a FAISS vector index and store metadata separately.
+    Save embeddings from chunks_data into a FAISS vector index 
     """
     embeddings = []
     metadata = []
+    ids = []
     
-    for item in chunks_data:
-        # Ensure the embedding is a NumPy array (convert from tensor if necessary)
+    # Assign a unique id for each item (starting at 0)
+    for i, item in enumerate(chunks_data):
+        # Convert embedding to a NumPy array if it's a PyTorch tensor
         if hasattr(item["embedding"], "cpu"):
             emb = item["embedding"].cpu().numpy()
         else:
             emb = item["embedding"]
         embeddings.append(emb)
         
-        # Store metadata (without the embedding to avoid redundancy)
-        metadata.append({"pdf": item["pdf"], "chunk": item["chunk"]})
+        # Use i as the unique ID
+        item_id = i
+        ids.append(item_id)
         
-    # Stack all embeddings into a 2D NumPy array of type float32
+        # Save metadata with pdf, chunk, page, and id.
+        metadata.append({
+            "pdf": item["pdf"],
+            "chunk": item["chunk"],
+            "page": item.get("page", "Unknown"),
+            "id": item_id
+        })
+    
+    # Stack embeddings into a 2D NumPy array of type float32
     embeddings_matrix = np.vstack(embeddings).astype("float32")
     
-    # Normalize embeddings for cosine similarity (FAISS inner product on normalized vectors mimics cosine similarity)
+    # Normalize embeddings for cosine similarity (if using inner product on normalized vectors)
     faiss.normalize_L2(embeddings_matrix)
     
     embedding_dim = embeddings_matrix.shape[1]
     
-    # Create a FAISS index. Here we use IndexFlatIP for inner product similarity.
-    index = faiss.IndexFlatIP(embedding_dim)
+    # Create an index that supports deletion: wrap IndexFlatIP in an IndexIDMap
+    index_flat = faiss.IndexFlatIP(embedding_dim)
+    index = faiss.IndexIDMap(index_flat)
     
-    # Add embeddings to the index
-    index.add(embeddings_matrix)
+    # Convert ids list to a NumPy array of type int64
+    ids_np = np.array(ids, dtype=np.int64)
     
-    # Save the FAISS index to disk
+    # Add embeddings with associated ids to the index
+    index.add_with_ids(embeddings_matrix, ids_np)
+    
+    # Save the FAISS index and metadata
     faiss.write_index(index, index_file)
-    
-    # Save the metadata using pickle
     with open(metadata_file, "wb") as f:
         pickle.dump(metadata, f)
     
     print(f"Saved FAISS index with {index.ntotal} vectors to '{index_file}'.")
-    print(f"Saved metadata for {len(metadata)} vectors to '{metadata_file}'.") 
+    print(f"Saved metadata for {len(metadata)} vectors to '{metadata_file}'.")
 
 def add_chunks_to_faiss(new_chunks_data: list,
                         index_file: str = "faiss_index.idx",
                         metadata_file: str = "metadata.pkl") -> None:
     """
-    Adds new chunk embeddings and metadata to an existing FAISS index and metadata file.
-    
-    Parameters:
-        new_chunks_data (list): List of dictionaries, each containing:
-            - 'pdf': PDF file name.
-            - 'chunk': Text chunk.
-            - 'embedding': The embedding of the chunk (as a PyTorch tensor or NumPy array).
-        index_file (str): Filename of the existing FAISS index.
-        metadata_file (str): Filename of the metadata pickle file.
+    Add new chunk embeddings and metadata to an existing FAISS index and metadata file.
     """
-    # Load the existing FAISS index
+    # Load the existing FAISS index (assumed to be an IndexIDMap)
     index = faiss.read_index(index_file)
     
-    # Load existing metadata
+    # Load existing metadata (or start with an empty list)
     try:
         with open(metadata_file, "rb") as f:
             metadata = pickle.load(f)
@@ -156,56 +148,57 @@ def add_chunks_to_faiss(new_chunks_data: list,
         metadata = []
     
     new_embeddings = []
+    new_ids = []
     
-    # Process new chunks data
-    for item in new_chunks_data:
-        # Convert embedding to NumPy array if it is a PyTorch tensor
+    # Determine the starting id for new vectors
+    if metadata:
+        current_max_id = max(item["id"] for item in metadata)
+    else:
+        current_max_id = -1
+    
+    # Process each new chunk
+    for i, item in enumerate(new_chunks_data):
         if hasattr(item["embedding"], "cpu"):
             emb = item["embedding"].cpu().numpy()
         else:
             emb = item["embedding"]
         new_embeddings.append(emb)
         
-        # Append the new metadata
+        # Assign a new unique id
+        new_id = current_max_id + i + 1
+        new_ids.append(new_id)
+        
+        # Append new metadata including pdf, chunk, page, and id
         metadata.append({
             "pdf": item["pdf"],
-            "chunk": item["chunk"]
+            "chunk": item["chunk"],
+            "page": item.get("page", "Unknown"),
+            "id": new_id
         })
     
-    # Stack all new embeddings into a matrix (float32)
+    # Stack new embeddings into a 2D NumPy array (float32)
     new_embeddings_matrix = np.vstack(new_embeddings).astype("float32")
     
-    # Normalize embeddings (if your index uses normalized vectors for cosine similarity)
+    # Normalize new embeddings
     faiss.normalize_L2(new_embeddings_matrix)
     
-    # Add new embeddings to the FAISS index
-    index.add(new_embeddings_matrix)
+    new_ids_np = np.array(new_ids, dtype=np.int64)
+    
+    # Add new embeddings (with their ids) to the index
+    index.add_with_ids(new_embeddings_matrix, new_ids_np)
     
     # Save the updated FAISS index and metadata
     faiss.write_index(index, index_file)
     with open(metadata_file, "wb") as f:
         pickle.dump(metadata, f)
     
-    print(f"Added {len(new_chunks_data)} new vectors. Total vectors in index: {index.ntotal}")
+    print(f"Added {len(new_chunks_data)} new vectors. Total vectors in index: {index.ntotal}.")
 
 def delete_chunks_from_file(file_name: str,
                             index_file: str = "faiss_index.idx",
                             metadata_file: str = "metadata.pkl") -> None:
     """
     Delete all vector chunks corresponding to a given file from the FAISS vector database.
-    
-    This function assumes that:
-      - The FAISS index was created as an IndexIDMap, so that each vector has a unique ID.
-      - The associated metadata (stored in a pickle file) is a list of dictionaries, and each
-        dictionary includes:
-            - 'pdf': the file name from which the chunk came.
-            - 'chunk': the text of the chunk.
-            - 'id': the unique identifier corresponding to the vector in the FAISS index.
-    
-    Parameters:
-        file_name (str): The name of the file whose chunks should be deleted.
-        index_file (str): Path to the FAISS index file.
-        metadata_file (str): Path to the metadata pickle file.
     """
     # Load the FAISS index
     index = faiss.read_index(index_file)
@@ -217,12 +210,12 @@ def delete_chunks_from_file(file_name: str,
     except FileNotFoundError:
         print(f"Metadata file '{metadata_file}' not found.")
         return
-
-    # Identify IDs for chunks that belong to the specified file.
+    
     ids_to_delete = []
     updated_metadata = []
+    
+    # Identify vectors (by id) that belong to the specified file.
     for item in metadata:
-        # We assume each metadata item has an 'id' field (assigned when the vector was added)
         if item.get("pdf") == file_name:
             if "id" in item:
                 ids_to_delete.append(item["id"])
@@ -235,12 +228,11 @@ def delete_chunks_from_file(file_name: str,
     if not ids_to_delete:
         print(f"No chunks found for file '{file_name}'.")
         return
-
-    # Convert the list of IDs to a NumPy array of type int64
+    
+    # Convert the list of ids to a NumPy array of type int64
     ids_to_delete = np.array(ids_to_delete, dtype=np.int64)
     
-    # Remove the vectors corresponding to these IDs from the FAISS index.
-    # Note: This works only if the index is wrapped in an IndexIDMap.
+    # Remove the vectors corresponding to these ids from the FAISS index.
     index.remove_ids(ids_to_delete)
     
     # Save the updated index and metadata back to disk
