@@ -1,14 +1,13 @@
 from langchain.prompts import ChatPromptTemplate
-from langchain_ollama import OllamaEmbeddings
 from sentence_transformers import SentenceTransformer
+from langchain.memory import ConversationBufferWindowMemory
+from langchain.chains import ConversationChain
 from langchain_ollama import ChatOllama
 from datetime import datetime, timezone
-from langchain_chroma import Chroma
 from flask import request, jsonify
 from dotenv import load_dotenv
 from bson import ObjectId
 import torch
-import time
 import faiss
 import pickle
 import os
@@ -30,30 +29,10 @@ CONTENT_PROMPT = """
     Question:
     {question}
 
-     Answer:
+    Answer:
 """
 
-def query(course_db):
-    course = request.json.get('course')
-    question = request.json.get('question')
-    user_id = request.json.get('user_id')
-    chat_id = request.json.get('chat_id')
-    
-    if not question or not course or not user_id:
-        return jsonify({"error": "Missing query text, course, or user_id"}), 400
-        
-    start_time = time.time()
-    """ 
-    local_chat_history = []
-    if chat_id:
-        chat_id_obj = ObjectId(chat_id)
-        chat_doc = course_db.Chats.find_one({"_id": chat_id_obj})
-        if chat_doc:
-            messages = chat_doc.get("messages", [])
-            for i in range(0, len(messages) - 1, 2):
-                if i + 1 < len(messages):
-                    local_chat_history.append((messages[i]["message_content"], messages[i + 1]["message_content"]))
-    """
+def retrieve_from_vector_database(question,course):
     transformer_model = SentenceTransformer("all-MiniLM-L6-v2")
     question_embedding = transformer_model.encode(question, convert_to_tensor=True)
     question_embedding = question_embedding.cpu().numpy().astype("float32")
@@ -67,7 +46,7 @@ def query(course_db):
     # Perform a search: retrieve top 3 most similar chunks
     k = 3
     distances, indices = index.search(question_embedding.reshape(1, -1), k)
-    
+
     context_chunks = []
     sources = []  # This will store dictionaries with file and page info.
     for dist, idx in zip(distances[0], indices[0]):
@@ -79,26 +58,59 @@ def query(course_db):
                 "pdf": meta.get("pdf", "Unknown"),
                 "page": meta.get("page", "Unknown")
             })
-
-    if not context_chunks:
-        end_time = time.time()
-        return jsonify({
-            "response": "I'm sorry, I don't have enough information to answer that.",
-            "sources": [],
-            "execution_time": f"{end_time - start_time:.2f} seconds"
-        })
     
-    context = "\n\n".join(context_chunks)
+    return context_chunks, sources
 
-    content_prompt_obj = ChatPromptTemplate.from_template(CONTENT_PROMPT)
-    prompt = content_prompt_obj.format(
-        context=context, 
-        question=question 
-    )
+def query(course_db):
+    course = request.json.get('course')
+    question = request.json.get('question')
+    user_id = request.json.get('user_id')
+    chat_id = request.json.get('chat_id')
     
-    response_text = llm_model.invoke(prompt).content
+    if not question or not course or not user_id:
+        return jsonify({"error": "Missing query text, course, or user_id"}), 400
         
-    end_time = time.time()
+    context_chunks, sources = retrieve_from_vector_database(question,course)
+
+    if not context_chunks: # If no context is found
+        if not chat_id:
+            return jsonify({
+                "response": "I'm sorry, I don't have enough information to answer that.",
+                "sources": []
+            })
+        
+        else: # If there is a chat_id, we can use the chat history to generate a response
+            chat_id_obj = ObjectId(chat_id)
+            chat_doc = course_db.Chats.find_one({"_id": chat_id_obj})
+            if chat_doc:
+                last_3_memory = ConversationBufferWindowMemory(k=3)
+                messages = chat_doc.get("messages", [])
+                for i in range(0, len(messages) - 1, 2):
+                    if i + 1 < len(messages):
+                        last_3_memory.save_context(
+                            {"input": messages[i]["message_content"]},
+                            {"output": messages[i + 1]["message_content"]}
+                        )
+                
+                conversation = ConversationChain(
+                    llm=llm_model,
+                    verbose=True,
+                    memory=last_3_memory
+                )
+                rule = "Please answer the question using only the chat history provided. Do not include or search for any additional knowledge or assumptions beyond what is given. If the answer cannot be determined from the chat history between you and the user, explicitly state that the information is not available."
+                response_text = conversation.predict(input=question+rule)
+    else:
+        # If context is found, use it to generate a response
+        context = "\n\n".join(context_chunks)
+
+        content_prompt_obj = ChatPromptTemplate.from_template(CONTENT_PROMPT)
+        prompt = content_prompt_obj.format(
+            context=context, 
+            question=question 
+        )
+    
+        response_text = llm_model.invoke(prompt).content
+        
     user_message = {
         "sender": "user",
         "message_content": question,
@@ -129,6 +141,5 @@ def query(course_db):
     return jsonify({
         "chat_id": chat_id,
         "model_response": response_text,
-        "sources": sources,
-        "execution_time": f"{end_time - start_time:.2f} seconds"
+        "sources": sources
     }), 200
