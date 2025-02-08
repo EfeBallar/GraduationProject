@@ -14,9 +14,9 @@ import pickle
 import os
 
 load_dotenv()
-MODEL=os.getenv("MODEL")
+LLM_MODEL=os.getenv("LLM_MODEL")
 V_DB_PATH = os.getenv("V_DB_PATH")
-llm_model = ChatOllama(model=MODEL, temperature = 0)
+llm_model = ChatOllama(model=LLM_MODEL, temperature = 0)
 
 CONTENT_PROMPT = """
     You are provided with the following context extracted from a document.
@@ -54,8 +54,8 @@ def query(course_db):
                 if i + 1 < len(messages):
                     local_chat_history.append((messages[i]["message_content"], messages[i + 1]["message_content"]))
     """
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-    question_embedding = model.encode(question, convert_to_tensor=True)
+    transformer_model = SentenceTransformer("all-MiniLM-L6-v2")
+    question_embedding = transformer_model.encode(question, convert_to_tensor=True)
     question_embedding = question_embedding.cpu().numpy().astype("float32")
     faiss.normalize_L2(question_embedding.reshape(1, -1))
     
