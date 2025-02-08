@@ -11,4 +11,3 @@ numpy
 flask
 boto3
 tqdm
-shutil
