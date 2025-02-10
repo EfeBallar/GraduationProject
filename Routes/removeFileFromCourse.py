@@ -24,14 +24,15 @@ def remove_file_from_course(course_db):
         file_path = os.path.join(DOC_PATH, course_code, file_name)
         if os.path.exists(file_path):
             try:
-                os.remove(file_path)
+                pass
+                # os.remove(file_path)
             except OSError as e:
                 return jsonify({"error": f"Error removing file: {str(e)}"}), 500
 
         else:
             return jsonify({"error": "File path doesn't exist."}), 404
         
-        delete_chunks_from_file(file_path, course_code +"_faiss_index.idx", course_code +"_metadata.pkl")
+        delete_chunks_from_file(file_name, f"{course_code}_faiss_index.idx", course_code +"_metadata.pkl")
 
         return jsonify({
             "status": "success",

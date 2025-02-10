@@ -15,7 +15,7 @@ def get_chat_content(db):
         if not chat:
             return jsonify({"error": "chat not found"}), 404
 
-
+        
         return jsonify({
             "chat": 
             {

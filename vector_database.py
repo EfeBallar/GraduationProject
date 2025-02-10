@@ -1,5 +1,6 @@
 import os
 import PyPDF2
+from flask import jsonify
 from sentence_transformers import SentenceTransformer
 import torch
 import faiss
@@ -136,9 +137,18 @@ def add_chunks_to_faiss(new_chunks_data: list,
     """
     Add new chunk embeddings and metadata to an existing FAISS index and metadata file.
     """
+
+
+    index_file = f"{os.getcwd()}\\faiss\\{index_file}"
+    metadata_file = f"{os.getcwd()}\\faiss\\{metadata_file}"
+
+
     # Load the existing FAISS index (assumed to be an IndexIDMap)
-    index = faiss.read_index(index_file)
-    
+    try:
+        index = faiss.read_index(index_file)
+    except Exception as e:
+        print(e)
+
     # Load existing metadata (or start with an empty list)
     try:
         with open(metadata_file, "rb") as f:
@@ -146,35 +156,39 @@ def add_chunks_to_faiss(new_chunks_data: list,
     except FileNotFoundError:
         print(f"Metadata file '{metadata_file}' not found. Starting with an empty metadata list.")
         metadata = []
-    
     new_embeddings = []
     new_ids = []
     
     # Determine the starting id for new vectors
     if metadata:
         current_max_id = max(item["id"] for item in metadata)
+
     else:
         current_max_id = -1
-    
+
     # Process each new chunk
     for i, item in enumerate(new_chunks_data):
-        if hasattr(item["embedding"], "cpu"):
-            emb = item["embedding"].cpu().numpy()
-        else:
-            emb = item["embedding"]
-        new_embeddings.append(emb)
-        
-        # Assign a new unique id
-        new_id = current_max_id + i + 1
-        new_ids.append(new_id)
-        
-        # Append new metadata including pdf, chunk, page, and id
-        metadata.append({
-            "pdf": item["pdf"],
-            "chunk": item["chunk"],
-            "page": item.get("page", "Unknown"),
-            "id": new_id
-        })
+        try:
+            if hasattr(item["embedding"], "cpu"):
+                emb = item["embedding"].cpu().numpy()
+            else:
+                emb = item["embedding"]
+            new_embeddings.append(emb)
+
+            
+            # Assign a new unique id
+            new_id = current_max_id + i + 1
+            new_ids.append(new_id)
+            
+            metadata.append({
+                "pdf": item["pdf"],
+                "chunk": item["chunk"],
+                "page": item.get("page", "Unknown"),
+                "id": new_id
+            })
+        except Exception as e:
+            print(e)
+
     
     # Stack new embeddings into a 2D NumPy array (float32)
     new_embeddings_matrix = np.vstack(new_embeddings).astype("float32")
@@ -200,6 +214,10 @@ def delete_chunks_from_file(file_name: str,
     """
     Delete all vector chunks corresponding to a given file from the FAISS vector database.
     """
+
+    index_file = f"{os.getcwd()}\\faiss\\{index_file}"
+    metadata_file = f"{os.getcwd()}\\faiss\\{metadata_file}"
+
     # Load the FAISS index
     index = faiss.read_index(index_file)
     
@@ -226,8 +244,7 @@ def delete_chunks_from_file(file_name: str,
             updated_metadata.append(item)
     
     if not ids_to_delete:
-        print(f"No chunks found for file '{file_name}'.")
-        return
+        return jsonify({"error": f"No chunks found for file {file_name}"}), 409
     
     # Convert the list of ids to a NumPy array of type int64
     ids_to_delete = np.array(ids_to_delete, dtype=np.int64)
@@ -243,7 +260,7 @@ def delete_chunks_from_file(file_name: str,
     print(f"Deleted {len(ids_to_delete)} chunks from file '{file_name}'.")
 
 if __name__ == "__main__":
-    course_codes = ['CS307']
+    course_codes = ['CS404']
     for course_code in course_codes:
         pdf_directory = DOC_PATH + "\\" + course_code
         # Process PDFs and generate text chunks

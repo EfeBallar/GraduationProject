@@ -15,7 +15,13 @@ import os
 load_dotenv()
 LLM_MODEL=os.getenv("LLM_MODEL")
 V_DB_PATH = os.getenv("V_DB_PATH")
+THRESHOLD = float(os.getenv("CHUNK_RELEVANCY_THRESHOLD"))
+
 llm_model = ChatOllama(model=LLM_MODEL, temperature = 0)
+# title_model = ChatOllama(model="", temperature = 0)
+
+
+reasoning_rule = "Respond directly without additional reasoning." if "deepseek" in LLM_MODEL else ""
 
 CONTENT_PROMPT = """
     You are provided with the following context extracted from a document.
@@ -43,16 +49,18 @@ def retrieve_from_vector_database(question,course):
     with open(V_DB_PATH +"\\" + course+"_metadata.pkl", "rb") as f:
         metadata = pickle.load(f)
     
-    # Perform a search: retrieve top 3 most similar chunks
-    k = 3
+    # Perform a search: retrieve top k most similar chunks
+    k = 5
     distances, indices = index.search(question_embedding.reshape(1, -1), k)
 
     context_chunks = []
     sources = []  # This will store dictionaries with file and page info.
     for dist, idx in zip(distances[0], indices[0]):
-        if dist >= 0.3:
+        if dist >= THRESHOLD:
             meta = metadata[idx]
             context_chunks.append(meta["chunk"])
+
+
             # Append source information: file name and page number.
             sources.append({
                 "pdf": meta.get("pdf", "Unknown"),
@@ -66,11 +74,12 @@ def query(course_db):
     question = request.json.get('question')
     user_id = request.json.get('user_id')
     chat_id = request.json.get('chat_id')
-    
+
     if not question or not course or not user_id:
         return jsonify({"error": "Missing query text, course, or user_id"}), 400
         
     context_chunks, sources = retrieve_from_vector_database(question,course)
+
 
     if not context_chunks: # If no context is found
         if not chat_id:
@@ -97,8 +106,10 @@ def query(course_db):
                     verbose=True,
                     memory=last_3_memory
                 )
-                rule = "Please answer the question using only the chat history provided. Do not include or search for any additional knowledge or assumptions beyond what is given. If the answer cannot be determined from the chat history between you and the user, explicitly state that the information is not available."
+                rule = " Please answer the question using only the chat history provided. Do not include or search for any additional knowledge or assumptions beyond what is given. If the answer cannot be determined from the chat history between you and the user, explicitly state that the information is not available."
                 response_text = conversation.predict(input=question+rule)
+                response_text = response_text[response_text.rfind("AI:") + len("AI:") + 1:]
+
     else:
         # If context is found, use it to generate a response
         context = "\n\n".join(context_chunks)
@@ -109,7 +120,11 @@ def query(course_db):
             question=question 
         )
     
-        response_text = llm_model.invoke(prompt).content
+        response_text = llm_model.invoke(reasoning_rule + prompt).content
+
+
+    if "</think>" in response_text:
+        response_text = response_text[response_text.index("</think>") + len("</think>") + 1:]
         
     user_message = {
         "sender": "user",
@@ -129,16 +144,28 @@ def query(course_db):
              "$set": {"last_message_time": datetime.now(timezone.utc).isoformat()}}
         )
     else:
+        title_prompt = ChatPromptTemplate.from_template(
+            "Create a concise title (up to 6 words) for this conversation based on the user query:\n\nUser Query: {question}. Make sure you only return the title itself wrapped in [ and ]. For example, if the generated title is 'Title', then the output will be ['Title']"
+        )
+        title_input = title_prompt.format(question=question)
+        title_response = llm_model.invoke(title_input)
+
+
+        title = title_response.content[title_response.content.rfind("[") + 1:-1].strip().replace('"', '').replace("'", '')
+    
         chat_entry = {
+            "course": course,
             "user_id": user_id,
             "started_at": datetime.now(timezone.utc).isoformat(),
             "last_message_time": datetime.now(timezone.utc).isoformat(),
             "messages": [user_message, chatbot_message],
-            "title": []
+            "title": title
         }
+
         result = course_db.Chats.insert_one(chat_entry)
         chat_id = str(result.inserted_id)
     return jsonify({
+        "course": course,
         "chat_id": chat_id,
         "model_response": response_text,
         "sources": sources
