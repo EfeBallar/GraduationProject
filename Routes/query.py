@@ -20,6 +20,7 @@ THRESHOLD = float(os.getenv("CHUNK_RELEVANCY_THRESHOLD"))
 
 llm_model = ChatOllama(model=LLM_MODEL, temperature = 0)
 transformer_model = SentenceTransformer("all-MiniLM-L6-v2")
+# code_transformer_model = SentenceTransformer("microsoft/codebert-base")
 # title_model = ChatOllama(model="", temperature = 0)
 
 CONTENT_PROMPT = """
@@ -57,10 +58,9 @@ def retrieve_from_vector_database(question,course):
             meta = metadata[idx]
             context_chunks.append(meta["chunk"])
 
-
             # Append source information: file name and page number.
             sources.append({
-                "pdf": meta.get("pdf", "Unknown"),
+                "file": meta.get("file", "Unknown"),
                 "page": meta.get("page", "Unknown")
             })
     
@@ -91,7 +91,7 @@ def retrieve_from_chat_history(question, last_3_memory, llm_model):
         "respond exactly with: \"I cannot answer this question based solely on our chat history alone.\""
     )
     human_message = HumanMessagePromptTemplate.from_template(
-        "Chat History:\n{history}\n\Human: {input}\n\nBased solely on the above chat history, answer the question. "
+        "Chat History:\n{history}\nHuman: {input}\n\nBased solely on the above chat history, answer the question. "
     )
     chat_prompt = ChatPromptTemplate.from_messages([system_message, human_message])
     conversation = ConversationChain(
@@ -195,11 +195,8 @@ def query(course_db):
                 edit_keywords = [
                     "make it shorter",
                     "shorten it", 
-                    "more concise",
                     "in fewer words",
                     "make it brief",
-                    "keep it brief",
-                    "condense it",
                     "trim it down",
                     "cut it down",
                     "can you shorten that",
@@ -211,8 +208,10 @@ def query(course_db):
                     "give me a summary",
                     "sum it up",
                     "make it simpler",
-                    "simplify it",
-                    "quick summary"
+                    "simplify",
+                    "quick summary",
+                    "more",
+                    "detailed"
                 ]
                 if not any(keyword in question.lower() for keyword in edit_keywords): # If the question is not about editing the previous answer
                     similarity = compute_similarity_between_query_and_chat_history(question, messages)
@@ -240,5 +239,5 @@ def query(course_db):
     if "</think>" in response_text:
         response_text = response_text[response_text.index("</think>") + len("</think>") + 1:]
 
-    save_chat(course_db, course, user_id, question, response_text, sources, chat_id)
+    return save_chat(course_db, course, user_id, question, response_text, sources, chat_id)
     # Saves chat to the database and returns the response

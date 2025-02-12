@@ -1,5 +1,7 @@
 import os
 import PyPDF2
+from docx import Document
+from pptx import Presentation
 from flask import jsonify
 from sentence_transformers import SentenceTransformer
 import torch
@@ -12,46 +14,98 @@ load_dotenv()
 DOC_PATH = os.getenv("DOC_PATH")
 V_DB_PATH = os.getenv("V_DB_PATH")
 
-def generate_chunks_from_pdf(pdf_path: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> list:
+def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> list:
+    """
+    Breaks a string into overlapping text chunks.
+   
+    Returns:
+        list: A list of text chunk strings.
+    """
+    words = text.split()
     chunks = []
-    try:
-        with open(pdf_path, "rb") as f:
-            reader = PyPDF2.PdfReader(f)
-            for page_num, page in enumerate(reader.pages, start=1):
-                page_text = page.extract_text()
-                if page_text:
-                    words = page_text.split()
-                    index = 0
-                    while index < len(words):
-                        chunk_words = words[index: index + chunk_size]
-                        chunk_text = " ".join(chunk_words)
-                        chunks.append({"chunk": chunk_text, "page": page_num})
-                        if index + chunk_size >= len(words):
-                            break
-                        index += chunk_size - chunk_overlap
-    except Exception as e:
-        print(f"Error reading PDF file {pdf_path}: {e}")
+    index = 0
+    while index < len(words):
+        chunk_words = words[index: index + chunk_size]
+        chunks.append(" ".join(chunk_words))
+        if index + chunk_size >= len(words):
+            break
+        index += chunk_size - chunk_overlap
     return chunks
 
-def process_multiple_pdfs(pdf_dir: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> list:
+def generate_chunks_from_file(file_path: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> list:
+    """   
+    Returns:
+        List[dict]: List of dictionaries containing:
+            - 'chunk': Text chunk.
+            - 'page': Page/Slide/chunk sequence number.
     """
+    chunks = []
+    ext = os.path.splitext(file_path)[1].lower()
+    
+    try:
+        if ext == ".pdf":
+            with open(file_path, "rb") as f:
+                reader = PyPDF2.PdfReader(f)
+                for page_num, page in enumerate(reader.pages, start=1):
+                    page_text = page.extract_text() or ""
+                    if page_text:
+                        page_chunks = chunk_text(page_text, chunk_size, chunk_overlap)
+                        for chunk in page_chunks:
+                            chunks.append({"chunk": chunk, "page": page_num})
+        elif ext == ".docx":
+            doc = Document(file_path)
+            full_text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
+            if full_text:
+                doc_chunks = chunk_text(full_text, chunk_size, chunk_overlap)
+                for i, chunk in enumerate(doc_chunks, start=1):
+                    # For files without inherent pages, using sequential chunk numbers.
+                    chunks.append({"chunk": chunk, "page": i})
+        elif ext == ".pptx":
+            prs = Presentation(file_path)
+            for slide_num, slide in enumerate(prs.slides, start=1):
+                slide_text = []
+                for shape in slide.shapes:
+                    if hasattr(shape, "text") and shape.text:
+                        slide_text.append(shape.text)
+                slide_text = "\n".join(slide_text)
+                if slide_text:
+                    slide_chunks = chunk_text(slide_text, chunk_size, chunk_overlap)
+                    for chunk in slide_chunks:
+                        chunks.append({"chunk": chunk, "page": slide_num})
+        else:
+            # For txt, md, etc. files
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                text = f.read()
+                if text:
+                    text_chunks = chunk_text(text, chunk_size, chunk_overlap)
+                    for i, chunk in enumerate(text_chunks, start=1):
+                        chunks.append({"chunk": chunk, "page": i})
+    except Exception as e:
+        print(f"Error processing file {file_path}: {e}")
+    
+    return chunks
+
+def process_multiple_files(doc_dir: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> list:
+    """    
     Returns:
         List[dict]: A list of dictionaries. Each dictionary contains:
-            - 'pdf': PDF file name.
+            - 'file': File name.
             - 'chunk': The text chunk.
+            - 'page': Page/Slide/chunk sequence number.
     """
     chunks_data = []
-    for file_name in os.listdir(pdf_dir):
-        if file_name.lower().endswith(".pdf"):
-            pdf_path = os.path.join(pdf_dir, file_name)
-            chunks = generate_chunks_from_pdf(pdf_path, chunk_size, chunk_overlap)
-            for chunk_data in chunks:
-                # Each chunk_data is now a dict with keys "chunk" and "page"
-                chunks_data.append({
-                    "pdf": file_name,
-                    "chunk": chunk_data["chunk"],
-                    "page": chunk_data["page"]
-                })
+    
+    for file_name in os.listdir(doc_dir):
+        file_path = os.path.join(doc_dir, file_name)
+        chunks = generate_chunks_from_file(file_path, chunk_size, chunk_overlap)
+        for chunk_data in chunks:
+            # Here the key 'file' stores the filename.
+            chunks_data.append({
+                "file": file_name,
+                "chunk": chunk_data["chunk"],
+                "page": chunk_data["page"]
+            })
+
     return chunks_data
 
 def embed_chunks(chunks_data: list, model_name: str = "all-MiniLM-L6-v2", convert_to_tensor: bool = True) -> list:
@@ -96,10 +150,9 @@ def save_chunks_to_faiss(chunks_data: list,
         # Use i as the unique ID
         item_id = i
         ids.append(item_id)
-        
         # Save metadata with pdf, chunk, page, and id.
         metadata.append({
-            "pdf": item["pdf"],
+            "file": item["file"],
             "chunk": item["chunk"],
             "page": item.get("page", "Unknown"),
             "id": item_id
@@ -129,7 +182,6 @@ def save_chunks_to_faiss(chunks_data: list,
         pickle.dump(metadata, f)
     
     print(f"Saved FAISS index with {index.ntotal} vectors to '{index_file}'.")
-    print(f"Saved metadata for {len(metadata)} vectors to '{metadata_file}'.")
 
 def add_chunks_to_faiss(new_chunks_data: list,
                         index_file: str = "faiss_index.idx",
@@ -260,17 +312,16 @@ def delete_chunks_from_file(file_name: str,
     print(f"Deleted {len(ids_to_delete)} chunks from file '{file_name}'.")
 
 if __name__ == "__main__":
-    course_codes = ['CS404']
+    course_codes = ['temp']
     for course_code in course_codes:
-        pdf_directory = DOC_PATH + "\\" + course_code
+        doc_directory = DOC_PATH + "\\" + course_code
         # Process PDFs and generate text chunks
-        chunks_data = process_multiple_pdfs(pdf_directory, chunk_size=1000, chunk_overlap=200)
-        print(f"Extracted {len(chunks_data)} chunks from PDF files.")
+        chunks_data = process_multiple_files(doc_directory, chunk_size=1000, chunk_overlap=200)
+        print(f"Extracted {len(chunks_data)} chunks for {course_code}.")
     
         # Generate embeddings for each chunk using Sentence Transformers
         chunks_data = embed_chunks(chunks_data, model_name="all-MiniLM-L6-v2", convert_to_tensor=True)
-        print("Generated embeddings for all chunks.")
-    
+
         # Save the chunks and their embeddings to a FAISS vector database (with metadata)
         save_chunks_to_faiss(chunks_data, index_file= V_DB_PATH + "\\" + course_code+"_faiss_index.idx", metadata_file=V_DB_PATH + "\\" + course_code+"_metadata.pkl")
         print(f"Processed the documents for {course_code}.")

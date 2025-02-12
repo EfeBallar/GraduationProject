@@ -1,5 +1,5 @@
 """THIS FUNCTION ADDS A FILE TO A COURSE"""
-from vector_database import add_chunks_to_faiss,embed_chunks,generate_chunks_from_pdf
+from vector_database import add_chunks_to_faiss,embed_chunks,generate_chunks_from_file
 from flask import request, jsonify
 import os
 from dotenv import load_dotenv
@@ -36,7 +36,7 @@ def add_file_to_course(course_db):
             file_to_add.save(doc_path) # Save with the full path
             
 
-            chunks_data = generate_chunks_from_pdf(doc_path, 1000, 200)
+            chunks_data = generate_chunks_from_file(doc_path, 1000, 200)
 
             for chunk in chunks_data:
                 chunk["pdf"] = file_to_add.filename
