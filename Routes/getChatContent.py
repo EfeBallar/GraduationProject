@@ -25,6 +25,7 @@ def get_chat_content(db):
                 'last_message_time': chat["last_message_time"],
                 'messages': chat["messages"],
                 'title': chat["title"],
+                'course': chat["course"],
             }
         }), 200
         

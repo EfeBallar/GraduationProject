@@ -21,8 +21,8 @@ def add_file_to_course(course_db):
         
         course = course_db.Courses.find_one({"courseCode": course_code})
         
-        if not course:
-            return jsonify({"error": "Course not found"}), 404
+        # if not course:
+        #     return jsonify({"error": "Course not found"}), 404
         
         try:
             file_path = os.path.join(DOC_PATH + "\\" + course_code)

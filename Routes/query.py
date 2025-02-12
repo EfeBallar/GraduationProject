@@ -26,8 +26,7 @@ reasoning_rule = "Respond directly without additional reasoning." if "deepseek" 
 CONTENT_PROMPT = """
     You are provided with the following context extracted from a document.
     Please answer the question using only the information provided in the context.
-    Do not include any additional knowledge or assumptions beyond what is given.
-    If the answer cannot be determined from the context, explicitly state that the information is not available.
+    Do NOT include any single information additional to the knowledge or assumptions beyond what the context has.
 
     Context:
     {context}
@@ -83,10 +82,17 @@ def query(course_db):
 
     if not context_chunks: # If no context is found
         if not chat_id:
+
             return jsonify({
-                "response": "I'm sorry, I don't have enough information to answer that.",
-                "sources": []
-            })
+                "course": None,
+                "chat_id": None,
+                "last_message_time": None,
+                "model_response": "I'm sorry, I don't have enough information to answer that.",
+                "sources": None,
+                "title": None,
+                "server_response": False,
+            }), 200
+            
         
         else: # If there is a chat_id, we can use the chat history to generate a response
             chat_id_obj = ObjectId(chat_id)
@@ -137,13 +143,18 @@ def query(course_db):
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "sources": sources
     }
-    if chat_id:
+
+    chat_id = chat_id if chat_id else None
+    title = None
+    if chat_id: # If it is an existing chat
         course_db.Chats.update_one(
             {"_id": ObjectId(chat_id)},
             {"$push": {"messages": {"$each": [user_message, chatbot_message]}},
              "$set": {"last_message_time": datetime.now(timezone.utc).isoformat()}}
         )
+        
     else:
+        # Generate title for the new chat
         title_prompt = ChatPromptTemplate.from_template(
             "Create a concise title (up to 6 words) for this conversation based on the user query:\n\nUser Query: {question}. Make sure you only return the title itself wrapped in [ and ]. For example, if the generated title is 'Title', then the output will be ['Title']"
         )
@@ -164,9 +175,13 @@ def query(course_db):
 
         result = course_db.Chats.insert_one(chat_entry)
         chat_id = str(result.inserted_id)
+    
     return jsonify({
         "course": course,
         "chat_id": chat_id,
+        "last_message_time": datetime.now(timezone.utc).isoformat(),
         "model_response": response_text,
-        "sources": sources
+        "sources": sources,
+        "title": title,
+        "server_response": True,
     }), 200

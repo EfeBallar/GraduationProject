@@ -5,19 +5,24 @@ from datetime import datetime
 
 # Helper Function to Get Relevant Data
 def extract_fields(data):
-    return [
-        {
-            "course": entry["course"],
-            "_id": entry["_id"],
-            "title": entry["title"],
-            "last_message_time": entry["last_message_time"]
-        }
-        for entry in data
-    ]
+    result = []
+    for entry in data:
+        try:
+            result.append({
+                "course": entry["course"],
+                "_id": entry["_id"],
+                "title": entry["title"],
+                "last_message_time": entry["last_message_time"]
+            })
+        except Exception as e:
+            print(f"Error processing entry {entry}: {e}")
+    return result
+
 
 def get_user_chats(db):
     try:
         user_name = request.args.get('user_name')  # Get 'user_name' from query parameters
+        
         if not user_name:
             return jsonify({"error": "Username is required"}), 400
         

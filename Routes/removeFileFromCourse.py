@@ -13,6 +13,7 @@ def remove_file_from_course(course_db):
         file_name = request.json.get('file_name')
         course_code = request.json.get('course_code')
 
+
         if not file_name or not course_code:
             return jsonify({"error": "Course code and file name are required"}), 400
         
@@ -22,6 +23,7 @@ def remove_file_from_course(course_db):
             return jsonify({"error": "Course not found"}), 404
        
         file_path = os.path.join(DOC_PATH, course_code, file_name)
+        print(file_path)
         if os.path.exists(file_path):
             try:
                 pass
