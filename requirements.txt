@@ -6,6 +6,8 @@ langchain
 flask-cors
 pymongo
 PyPDF2
+python-pptx
+python-docx
 torch
 numpy
 flask

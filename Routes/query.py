@@ -24,6 +24,7 @@ THRESHOLD = float(os.getenv("CHUNK_RELEVANCY_THRESHOLD"))
 
 llm_model = ChatOllama(model=LLM_MODEL, temperature = 0)
 transformer_model = SentenceTransformer("all-MiniLM-L6-v2")
+# code_transformer_model = SentenceTransformer("microsoft/codebert-base")
 # title_model = ChatOllama(model="", temperature = 0)
 
 CONTENT_PROMPT = """
@@ -61,10 +62,9 @@ def retrieve_from_vector_database(question,course):
             meta = metadata[idx]
             context_chunks.append(meta["chunk"])
 
-
             # Append source information: file name and page number.
             sources.append({
-                "pdf": meta.get("pdf", "Unknown"),
+                "file": meta.get("file", "Unknown"),
                 "page": meta.get("page", "Unknown")
             })
     
