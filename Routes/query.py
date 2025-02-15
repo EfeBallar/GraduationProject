@@ -12,6 +12,10 @@ import torch
 import faiss
 import pickle
 import os
+import re
+
+import time
+
 
 load_dotenv()
 LLM_MODEL=os.getenv("LLM_MODEL")
@@ -91,7 +95,7 @@ def retrieve_from_chat_history(question, last_3_memory, llm_model):
         "respond exactly with: \"I cannot answer this question based solely on our chat history alone.\""
     )
     human_message = HumanMessagePromptTemplate.from_template(
-        "Chat History:\n{history}\n\Human: {input}\n\nBased solely on the above chat history, answer the question. "
+        "Chat History:\n{history}\nHuman: {input}\n\nBased solely on the above chat history, answer the question. "
     )
     chat_prompt = ChatPromptTemplate.from_messages([system_message, human_message])
     conversation = ConversationChain(
@@ -119,18 +123,35 @@ def save_chat(course_db, course, user_id, question, response_text, sources, chat
     chat_id = chat_id if chat_id else None
     title = None
     if chat_id:
-        course_db.Chats.update_one(
+        chat = course_db.Chats.update_one(
             {"_id": ObjectId(chat_id)},
             {"$push": {"messages": {"$each": [user_message, chatbot_message]}},
              "$set": {"last_message_time": datetime.now(timezone.utc).isoformat()}}
         )
+        title = chat["title"]
     else:
         title_prompt = ChatPromptTemplate.from_template(
-            "Create a concise title (up to 6 words) for this conversation based on the user query:\n\nUser Query: {question}. Make sure you only return the title itself wrapped in [ and ]. For example, if the generated title is 'Title', then the output will be ['Title']"
+            "Create a concise title (up to 6 words) for this conversation based on the user query:\n\nUser Query: {question}. Make sure you only return the title itself wrapped in <title> and </title>. For example, if the generated title is 'Title', then the output will be ['Title']"
         )
         title_input = title_prompt.format(question=question)
+        title_creation_start = time.time()
         title_response = llm_model.invoke(title_input)
-        title = title_response.content[title_response.content.rfind("[") + 1:-1].strip().replace('"', '').replace("'", '')
+        title_creation_finish = time.time()
+        
+        print(f"title_creation {title_creation_finish - title_creation_start}")
+
+        matches = re.findall(r'<title>\s*(.*?)\s*</title>', title_response.content, re.IGNORECASE | re.DOTALL)
+        print(title_response.content)
+        print()
+        if matches:
+            # Get the last match (the most recent title)
+            title = matches[-1].strip().replace('"', '').replace("'", '')
+            print(f"title sonuc: {title}")  # Output: Constrained Execution Limits
+        else:
+            print("No match found")
+        
+        
+        # title = title_response.content[title_response.content.rfind("[") + 1:-1].strip().replace('"', '').replace("'", '')
     
         chat_entry = {
             "course": course,
@@ -195,11 +216,8 @@ def query(course_db):
                 edit_keywords = [
                     "make it shorter",
                     "shorten it", 
-                    "more concise",
                     "in fewer words",
                     "make it brief",
-                    "keep it brief",
-                    "condense it",
                     "trim it down",
                     "cut it down",
                     "can you shorten that",
@@ -211,8 +229,10 @@ def query(course_db):
                     "give me a summary",
                     "sum it up",
                     "make it simpler",
-                    "simplify it",
-                    "quick summary"
+                    "simplify",
+                    "quick summary",
+                    "more",
+                    "detailed"
                 ]
                 if not any(keyword in question.lower() for keyword in edit_keywords): # If the question is not about editing the previous answer
                     similarity = compute_similarity_between_query_and_chat_history(question, messages)
@@ -234,11 +254,16 @@ def query(course_db):
         context = "\n\n".join(context_chunks)
         content_prompt_obj = ChatPromptTemplate.from_template(CONTENT_PROMPT)
         prompt = content_prompt_obj.format(context=context, question=question)
+        
+        response_creation_start = time.time()
         response_text = llm_model.invoke(prompt).content
+        response_creation_finish = time.time()
+        
+        print(f"response_creation {response_creation_finish - response_creation_start}")
 
     # Post-process the response if needed.
     if "</think>" in response_text:
         response_text = response_text[response_text.index("</think>") + len("</think>") + 1:]
 
-    save_chat(course_db, course, user_id, question, response_text, sources, chat_id)
+    return save_chat(course_db, course, user_id, question, response_text, sources, chat_id)
     # Saves chat to the database and returns the response
