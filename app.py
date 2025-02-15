@@ -1,20 +1,30 @@
 from flask import Flask
 from flask_cors import CORS
 from connectToDB import connect_to_database
-from Routes.query import query
-from Routes.getUserChats import get_user_chats
-from Routes.getCourses import get_courses
-from Routes.addPersonToCourse import add_person_to_course
-from Routes.addCourse import add_course
-from Routes.removePersonFromCourse import remove_person_from_course
+
+# User Routes
+from Routes.UserRoutes.getChatContent import get_chat_content
+from Routes.UserRoutes.getUserChats import get_user_chats
+from Routes.UserRoutes.getUserID import get_user_id
+
+# Course Routes
+from Routes.CourseRoutes.addCourse import add_course
+from Routes.CourseRoutes.addPersonToCourse import add_person_to_course
+from Routes.CourseRoutes.deleteCourse import delete_course
+from Routes.CourseRoutes.getCourses import get_courses
+from Routes.CourseRoutes.getPersonnelFromCourse import get_personnel_from_course
+from Routes.CourseRoutes.removePersonFromCourse import remove_person_from_course
+
+# File Routes
+from Routes.FileRoutes.removeFileFromCourse import remove_file_from_course
+from Routes.FileRoutes.addFileToCourse import add_file_to_course
+from Routes.FileRoutes.removeAllFilesOfACourse import remove_all_files_from_course
+from Routes.FileRoutes.getFilesOfACourse import get_files_of_a_course
+
+# Other Routes
 from Routes.getCoursesOfALecturer import get_courses_of_a_lecturer
-from Routes.getUserID import get_user_id
-from Routes.getPersonnelFromCourse import get_personnel_from_course
-from Routes.removeFileFromCourse import remove_file_from_course
-from Routes.addFileToCourse import add_file_to_course
-from Routes.removeAllFilesOfACourse import remove_all_files_from_course
-from Routes.getFilesOfACourse import get_files_of_a_course
-from Routes.getChatContent import get_chat_content
+from Routes.query import query
+
 
 app = Flask(__name__) #http://localhost:5000
 
@@ -83,6 +93,9 @@ def remove_person_from_course_route():
 def remove_all_files_from_course_route():
     return remove_all_files_from_course(db) 
 
+@app.route('/deleteCourse', methods=['DELETE'])
+def delete_course_route():
+    return delete_course(db) 
 
 if __name__ == "__main__":
     app.run()
